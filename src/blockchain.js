@@ -67,9 +67,8 @@ class Blockchain {
         let self = this;
         return new Promise(async (resolve, reject) => {
            try {
-               const height = this.chain.length;
                const time = new Date().getTime();
-               block.height = height;
+               block.height = self.height;
                block.time = time;
                block.previousBlockHash = this.chain[this.chain.length - 1].hash;
                self.chain.push(block);
@@ -174,7 +173,7 @@ class Blockchain {
                 const block = self.chain[i];
                 const bData = await block.getBData();
                 if (bData.address === address) {
-                    stars.push(bData);
+                    stars.push(bData.star);
                 }
             }
             resolve(stars);
