@@ -68,9 +68,10 @@ class Blockchain {
         return new Promise(async (resolve, reject) => {
            try {
                const time = new Date().getTime();
-               block.height = self.height;
+               block.height = this.chain.length;
                block.time = time;
-               block.previousBlockHash = this.chain[this.chain.length - 1].hash;
+               block.previousBlockHash = this.chain.length > 0 ? this.chain[this.chain.length - 1].hash : null;
+               block.hash = SHA256(JSON.stringify(block)).toString();
                self.chain.push(block);
                self.height++;
                resolve(block);
@@ -117,10 +118,20 @@ class Blockchain {
         return new Promise(async (resolve, reject) => {
             const messageTime = parseInt(message.split(':')[1]);
             const currentTime = parseInt(new Date().getTime().toString().slice(0, -3));
-            let tampered = (currentTime - messageTime) < FIVE_MINUTES;
-            bitcoinMessage.verify(message, address, signature);
-            const block = new Block(star);
-            return self._addBlock(block);
+            let tampered = (currentTime - messageTime) > FIVE_MINUTES;
+            if (!!tampered) {
+                reject('Message tampered');
+            }
+            const response = await bitcoinMessage.verify(message, address, signature);
+            if (!!response) {
+                const block = new Block({
+                    owner: address,
+                    star
+                });
+                const storedBlock = await self._addBlock(block);
+                resolve(storedBlock);
+            }
+            reject('Bitcoin message verification failed');
         });
     }
 
@@ -171,9 +182,13 @@ class Blockchain {
         return new Promise(async (resolve, reject) => {
             for (let i = 0; i < self.chain.length; i++) {
                 const block = self.chain[i];
-                const bData = await block.getBData();
-                if (bData.address === address) {
-                    stars.push(bData.star);
+                try {
+                    const bData = await block.getBData();
+                    if (bData.owner === address) {
+                        stars.push(bData);
+                    }
+                } catch (exception) {
+
                 }
             }
             resolve(stars);
